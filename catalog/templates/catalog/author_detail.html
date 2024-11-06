@@ -1,0 +1,25 @@
+{% extends "base_generic.html" %}
+
+{% block content %}
+<h1>Author: {{ author.first_name }}</h1>
+
+<h4> {{author.date_of_birth}} </h4>
+<div>
+    <h3>Books</h3>
+
+    {% for book in book_list %}
+    <li>
+        <a href="{{ author.book.get_absolute_url }}">{{ book.title }}</a> ({{book.author}})
+    </li>
+    {% endfor %}
+</div>
+{% for copy in book.book_set.all %}
+
+{{ copy.get_status_display }}
+
+{% if copy.status != 'a' %}<p><strong>Due to be returned:</strong> {{copy.due_back}}</p>{% endif %}
+<p><strong>Imprint:</strong> {{copy.imprint}}</p>
+<p class="text-muted"><strong>Id:</strong> {{copy.id}}</p>
+{% endfor %}
+
+{% endblock %}
