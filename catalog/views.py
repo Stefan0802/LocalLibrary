@@ -6,11 +6,12 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import generic
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.decorators import permission_required
-from datetime import datetime, timedelta
+from datetime import date, timedelta
 from .forms import RenewBookForm
 from django.http import HttpResponseRedirect
 from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, UpdateView, DeleteView
+
 
 
 # Create your views here.
@@ -96,7 +97,7 @@ class LoanedBooksByUserListView(LoginRequiredMixin, generic.ListView):
         )
 
 class LoanedBooksAllListView(PermissionRequiredMixin, generic.ListView):
-    """Generic class-based view listing all books on loan. Only visible to users with can_mark_returned permission."""
+    """Общее представление на основе классов со списком всех взятых напрокат книг. Доступно только пользователям с разрешением can_mark_returned."""
     model = BookInstance
     permission_required = 'catalog.can_mark_returned'
     template_name = 'catalog/bookinstance_list_borrowed_all.html'
@@ -105,38 +106,37 @@ class LoanedBooksAllListView(PermissionRequiredMixin, generic.ListView):
     def get_queryset(self):
         return BookInstance.objects.filter(status__exact='o').order_by('due_back')
 
+
+
 @login_required
 @permission_required('catalog.can_mark_returned', raise_exception=True)
 def renew_book_librarian(request, pk):
-    """View function for renewing a specific BookInstance by librarian."""
-    book_instance = get_object_or_404(BookInstance, pk=pk)
+    book_inst = get_object_or_404(BookInstance, pk=pk)
 
-    # If this is a POST request then process the Form data
+    # Если данный запрос типа POST, тогда
     if request.method == 'POST':
 
-        # Create a form instance and populate it with data from the request (binding):
+        # Создаём экземпляр формы и заполняем данными из запроса (связывание, binding):
         form = RenewBookForm(request.POST)
 
-        # Check if the form is valid:
+        # Проверка валидности данных формы:
         if form.is_valid():
-            # process the data in form.cleaned_data as required (here we just write it to the model due_back field)
-            book_instance.due_back = form.cleaned_data['renewal_date']
-            book_instance.save()
+            # Обработка данных из form.cleaned_data
+            #(здесь мы просто присваиваем их полю due_back)
+            book_inst.due_back = form.cleaned_data['renewal_date']
+            book_inst.save()
 
-            # redirect to a new URL:
-            return HttpResponseRedirect(reverse('all-borrowed'))
+            # Переход по адресу 'all-borrowed':
+            return HttpResponseRedirect(reverse('all-borrowed') )
 
-    # If this is a GET (or any other method) create the default form
+    # Если это GET (или какой-либо ещё), создать форму по умолчанию.
     else:
-        proposed_renewal_date = datetime.today() + timedelta(weeks=3)
-        form = RenewBookForm(initial={'due_back': proposed_renewal_date})
+        proposed_renewal_date = date.today() + timedelta(weeks=3)
+        form = RenewBookForm(initial={'renewal_date': proposed_renewal_date,})
 
-    context = {
-        'form': form,
-        'book_instance': book_instance,
-    }
+    return render(request, 'catalog/book_renew_librarian.html', {'form': form, 'bookinst':book_inst})
 
-    return render(request, 'catalog/book_renew_librarian.html', context)
+
 
 class AuthorCreate(PermissionRequiredMixin, CreateView):
     model = Author
@@ -164,56 +164,6 @@ class AuthorDelete(PermissionRequiredMixin, DeleteView):
                 reverse("author-delete", kwargs={"pk": self.object.pk})
             )
 
-
-class GenreDetailView(generic.DetailView):
-    """Generic class-based detail view for a genre."""
-    model = Genre
-
-class GenreListView(generic.ListView):
-    """Generic class-based list view for a list of genres."""
-    model = Genre
-    paginate_by = 10
-
-class GenreCreate(PermissionRequiredMixin, CreateView):
-    model = Genre
-    fields = ['name', ]
-    permission_required = 'catalog.add_genre'
-
-class GenreUpdate(PermissionRequiredMixin, UpdateView):
-    model = Genre
-    fields = ['name', ]
-    permission_required = 'catalog.change_genre'
-
-class GenreDelete(PermissionRequiredMixin, DeleteView):
-    model = Genre
-    success_url = reverse_lazy('genres')
-    permission_required = 'catalog.delete_genre'
-
-class LanguageDetailView(generic.DetailView):
-    """Generic class-based detail view for a genre."""
-    model = Language
-
-class LanguageListView(generic.ListView):
-    """Generic class-based list view for a list of genres."""
-    model = Language
-    paginate_by = 10
-
-class LanguageCreate(PermissionRequiredMixin, CreateView):
-    model = Language
-    fields = ['name', ]
-    permission_required = 'catalog.add_language'
-
-
-class LanguageUpdate(PermissionRequiredMixin, UpdateView):
-    model = Language
-    fields = ['name', ]
-    permission_required = 'catalog.change_language'
-
-
-class LanguageDelete(PermissionRequiredMixin, DeleteView):
-    model = Language
-    success_url = reverse_lazy('languages')
-    permission_required = 'catalog.delete_language'
 
 class BookCreate(PermissionRequiredMixin, CreateView):
     model = Book
