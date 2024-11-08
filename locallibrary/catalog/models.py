@@ -1,5 +1,8 @@
 from django.db import models
 from django.urls import reverse
+from django.conf import settings
+from django.db.models import UniqueConstraint
+from django.db.models.functions import Lower
 import uuid # Требуется для уникальных экземпляров книг
 
 # Create your models here.
@@ -14,6 +17,29 @@ class Genre(models.Model):
         Строка для представления объекта модели (на сайте администратора и т. д.).
         """
         return self.name
+
+class Language(models.Model):
+    """Model representing a Language (e.g. English, French, Japanese, etc.)"""
+    name = models.CharField(max_length=200,
+                            unique=True,
+                            help_text="Enter the book's natural language (e.g. English, French, Japanese etc.)")
+
+    def get_absolute_url(self):
+        """Returns the url to access a particular language instance."""
+        return reverse('language-detail', args=[str(self.id)])
+
+    def __str__(self):
+        """String for representing the Model object (in Admin site etc.)"""
+        return self.name
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                Lower('name'),
+                name='language_name_case_insensitive_unique',
+                violation_error_message = "Language already exists (case insensitive match)"
+            ),
+        ]
 
 class Book(models.Model):
     """
@@ -30,6 +56,8 @@ class Book(models.Model):
     genre = models.ManyToManyField(Genre, help_text="Выберите жанр этой книги")
     # ManyToManyField используется, поскольку жанр может содержать множество книг. Книги могут охватывать многие жанры.
     # Класс жанра уже определен, поэтому мы можем указать объект выше.
+    language = models.ForeignKey(
+        'Language', on_delete=models.SET_NULL, null=True)
 
     def __str__(self):
         """
@@ -60,18 +88,19 @@ class BookInstance(models.Model):
     book = models.ForeignKey('Book', on_delete=models.SET_NULL, null=True)
     imprint = models.CharField(max_length=200)
     due_back = models.DateField(null=True, blank=True)
+    borrower = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
 
     LOAN_STATUS = (
-        ('о', 'Обслуживание'),
-        ('в', 'В кредит'),
-        ('д', 'Доступный'),
-        ('с', 'Сдержанный'),
+        ('m', 'Maintenance'),
+        ('o', 'On loan'),
+        ('a', 'Available'),
+        ('r', 'Reserved'),
     )
-
     status = models.CharField(max_length=1, choices=LOAN_STATUS, blank=True, default='m', help_text='Забронировать наличие')
 
     class Meta:
         ordering = ["due_back"]
+        permissions = (("can_mark_returned", "Set book as returned"),)
 
 
     def __str__(self):
@@ -87,14 +116,14 @@ class Author(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     date_of_birth = models.DateField(null=True, blank=True)
-    date_of_death = models.DateField('Умер', null=True, blank=True)
+    date_of_death = models.DateField('Died', null=True, blank=True)
 
     def get_absolute_url(self):
         """
         Возвращает URL-адрес для доступа к конкретному экземпляру автора.
 
         """
-        return reverse('автор-деталь', args=[str(self.id)])
+        return reverse('author-detail', args=[str(self.id)])
 
 
     def __str__(self):
@@ -102,3 +131,8 @@ class Author(models.Model):
         Строка для представления объекта модели.
         """
         return '{0} ({1})'.format(self.last_name, self.first_name)
+
+    class Meta:
+        ordering = ['last_name']
+
+
